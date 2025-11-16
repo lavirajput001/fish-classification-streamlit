@@ -54,6 +54,6 @@ if uploaded_file is not None:
     st.write("Selected Optimized Features:", optimized_features.shape)
 
     st.subheader("5️⃣ PatternNet Prediction")
-    predicted_label = final_predict(model, optimized_features, label_encoder)
+    predicted_label = final_predict(model, image, label_encoder)
 
     st.success(f"🎯 Predicted Fish Species: **{predicted_label}**")
