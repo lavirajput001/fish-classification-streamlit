@@ -1,19 +1,12 @@
 import numpy as np
+import cv2
 
-def final_predict(model, optimized_features, label_encoder):
-    """
-    Convert optimized features → reshape → model prediction → label decode
-    """
-    optimized_features = np.array(optimized_features, dtype=np.float32)
+def final_predict(model, image, label_encoder):
+    img = cv2.resize(image, (96, 96))   # CNN input size
+    img = img.astype('float32') / 255.0
+    img = np.expand_dims(img, axis=0)   # (1, 96, 96, 3)
 
-    # Reshape as 1 sample with feature vector
-    optimized_features = optimized_features.reshape(1, -1)
-
-    # Run prediction
-    pred = model.predict(optimized_features)
-    class_index = np.argmax(pred)
-
-    # Decode label
-    label = label_encoder.inverse_transform([class_index])[0]
-
+    pred = model.predict(img)
+    index = np.argmax(pred)
+    label = label_encoder.inverse_transform([index])[0]
     return label
