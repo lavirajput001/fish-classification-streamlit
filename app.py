@@ -1,56 +1,31 @@
 import streamlit as st
-import numpy as np
-import cv2
-import tensorflow as tf
+from features import extract_features
+from model import load_model, predict
 import pickle
+import numpy as np
 
-from infer import final_predict   # we use the simplified correct infer.py
+# Load model
+model = load_model("patternnet_model.h5")
 
-# ------------------------------
-# Load Model + Label Encoder
-# ------------------------------
-@st.cache_resource
-def load_model():
-    model = tf.keras.models.load_model("patternnet_model.h5")
-    return model
+# Load label encoder
+with open("label_encoder.pkl", "rb") as f:
+    le = pickle.load(f)
 
-@st.cache_resource
-def load_label_encoder():
-    with open("label_encoder.pkl", "rb") as f:
-        le = pickle.load(f)
-    return le
+st.title("Fish Classification App")
 
-model = load_model()
-label_encoder = load_label_encoder()
-
-# ------------------------------
-# Streamlit UI
-# ------------------------------
-st.title("🐟 Fish Species Classification (PatternNet CNN)")
-st.write("Upload a fish image and get prediction.")
-
-uploaded_file = st.file_uploader("Upload an Image", type=["jpg", "jpeg", "png"])
-
-# ------------------------------
-# Handle Image Upload
-# ------------------------------
+# Image upload
+uploaded_file = st.file_uploader("Upload a fish image", type=["jpg", "png"])
 if uploaded_file is not None:
-
-    # Convert uploaded file → OpenCV image
-    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-
-    if image is None:
-        st.error("❌ Could not read the image. Upload a valid file.")
-    else:
-        st.image(image, channels="BGR", caption="Uploaded Image", use_column_width=True)
-
-        # --------------------------
-        # Predict using CNN
-        # --------------------------
-        try:
-            predicted_label = final_predict(model, image, label_encoder)
-            st.success(f"🎉 **Predicted Species:** {predicted_label}")
-
-        except Exception as e:
-            st.error(f"Prediction error: {str(e)}")
+    st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+    
+    # Feature extraction
+    features = extract_features(uploaded_file)
+    
+    # Prediction
+    prediction = predict(model, features)
+    
+    # ✅ This is where you add the fix
+    prediction = np.array(prediction).reshape(-1)  # flatten to 1D
+    predicted_label = le.inverse_transform(prediction)[0]
+    
+    st.success(f"Predicted Species: {predicted_label}")
