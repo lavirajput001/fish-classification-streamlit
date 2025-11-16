@@ -1,59 +1,56 @@
 import streamlit as st
 import numpy as np
-from PIL import Image
 import cv2
 import tensorflow as tf
 import pickle
 
-# Import local modules
-from uwie import enhance_image
-from morph import morph_process
-from features import extract_orb_features
-from firefly import firefly_optimize
-from infer import final_predict
+from infer import final_predict   # we use the simplified correct infer.py
 
-# Load model
-model = tf.keras.models.load_model("patternnet_model.h5")
+# ------------------------------
+# Load Model + Label Encoder
+# ------------------------------
+@st.cache_resource
+def load_model():
+    model = tf.keras.models.load_model("patternnet_model.h5")
+    return model
 
-# Load label encoder
-with open("label_encoder.pkl", "rb") as f:
-    label_encoder = pickle.load(f)
+@st.cache_resource
+def load_label_encoder():
+    with open("label_encoder.pkl", "rb") as f:
+        le = pickle.load(f)
+    return le
 
-# ---------------------------
-# STREAMLIT UI STARTS HERE
-# ---------------------------
+model = load_model()
+label_encoder = load_label_encoder()
 
-st.title("🐟 Fish Species Classification (Research Paper Implementation)")
-st.write("Upload an underwater fish image to classify using SURF/ORB + Firefly + PatternNet CNN")
+# ------------------------------
+# Streamlit UI
+# ------------------------------
+st.title("🐟 Fish Species Classification (PatternNet CNN)")
+st.write("Upload a fish image and get prediction.")
 
-uploaded_file = st.file_uploader("Upload Fish Image", type=["jpg", "jpeg", "png"])
+uploaded_file = st.file_uploader("Upload an Image", type=["jpg", "jpeg", "png"])
 
+# ------------------------------
+# Handle Image Upload
+# ------------------------------
 if uploaded_file is not None:
-    # Display original image
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Image", use_column_width=True)
 
-    # Convert to OpenCV
-    img = np.array(image)
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    # Convert uploaded file → OpenCV image
+    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+    image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-    st.subheader("1️⃣ Underwater Image Enhancement (UWIE)")
-    enhanced = enhance_image(img)
-    st.image(cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB), caption="Enhanced Image", use_column_width=True)
+    if image is None:
+        st.error("❌ Could not read the image. Upload a valid file.")
+    else:
+        st.image(image, channels="BGR", caption="Uploaded Image", use_column_width=True)
 
-    st.subheader("2️⃣ Morphological Processing")
-    morph_img = morph_process(enhanced)
-    st.image(morph_img, caption="Morph Processed Image", use_column_width=True)
+        # --------------------------
+        # Predict using CNN
+        # --------------------------
+        try:
+            predicted_label = final_predict(model, image, label_encoder)
+            st.success(f"🎉 **Predicted Species:** {predicted_label}")
 
-    st.subheader("3️⃣ Feature Extraction (ORB/SURF Equivalent)")
-    features = extract_orb_features(morph_img)
-    st.write(f"Extracted Features Shape: {features.shape}")
-
-    st.subheader("4️⃣ Firefly Optimization")
-    optimized_features = firefly_optimize(features)
-    st.write("Selected Optimized Features:", optimized_features.shape)
-
-    st.subheader("5️⃣ PatternNet Prediction")
-    predicted_label = final_predict(model, image, label_encoder)
-
-    st.success(f"🎯 Predicted Fish Species: **{predicted_label}**")
+        except Exception as e:
+            st.error(f"Prediction error: {str(e)}")
