@@ -1,31 +1,28 @@
+# app.py
 import streamlit as st
-from features import extract_features
-from model import load_model, predict
-import pickle
+import cv2
 import numpy as np
+from infer import predict_image_streamlit
+from PIL import Image
 
-# Load model
-model = load_model("patternnet_model.h5")
+st.set_page_config(page_title="Fish Classifier", layout="centered")
+st.title("Fish Species Classifier (UWIE + SURF/ORB + PatternNet)")
 
-# Load label encoder
-with open("label_encoder.pkl", "rb") as f:
-    le = pickle.load(f)
+st.sidebar.header("Settings")
+approach = st.sidebar.selectbox("Approach", ["cnn", "bovw"])
+st.sidebar.write("Upload image to classify fish species.")
 
-st.title("Fish Classification App")
+uploaded = st.file_uploader("Upload an underwater fish image", type=['jpg','jpeg','png'])
+if uploaded is not None:
+    # read image via PIL then convert to OpenCV BGR
+    pil = Image.open(uploaded).convert('RGB')
+    img = np.array(pil)[:, :, ::-1].copy()  # RGB->BGR
+    st.image(pil, caption="Uploaded image", use_column_width=True)
 
-# Image upload
-uploaded_file = st.file_uploader("Upload a fish image", type=["jpg", "png"])
-if uploaded_file is not None:
-    st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
-    
-    # Feature extraction
-    features = extract_features(uploaded_file)
-    
-    # Prediction
-    prediction = predict(model, features)
-    
-    # ✅ This is where you add the fix
-    prediction = np.array(prediction).reshape(-1)  # flatten to 1D
-    predicted_label = le.inverse_transform(prediction)[0]
-    
-    st.success(f"Predicted Species: {predicted_label}")
+    st.write("Running preprocessing and prediction...")
+    with st.spinner("Predicting..."):
+        label, conf = predict_image_streamlit(img, approach=approach)
+    st.success(f"Predicted: {label}")
+    if conf is not None:
+        st.write(f"Confidence: {conf:.3f}")
+    st.write("If confidence is low try another image or retrain model with more data.")
