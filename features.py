@@ -1,36 +1,26 @@
+# features.py
 import cv2
 import numpy as np
 
-def extract_orb_features(image):
-    """
-    Extract ORB keypoints + descriptors
-    Convert descriptors into 1D fixed-size vector
-    """
+# try to create SURF; if not available fall back to ORB
+def make_detector(surf_hessian=400):
+    try:
+        # xfeatures2d.SURF_create is present in opencv-contrib-python
+        surf = cv2.xfeatures2d.SURF_create(hessianThreshold=surf_hessian)
+        return ('surf', surf)
+    except Exception as e:
+        # fallback to ORB
+        orb = cv2.ORB_create(nfeatures=1000)
+        return ('orb', orb)
 
-    # ORB extractor (500 features)
-    orb = cv2.ORB_create(nfeatures=500)
-
-    # Detect keypoints + descriptors
-    keypoints, descriptors = orb.detectAndCompute(image, None)
-
-    # If no descriptors found → return zero vector
-    if descriptors is None:
-        return np.zeros(500 * 32)   # ORB descriptor = 32 bytes
-
-    # Flatten descriptors
-    desc = descriptors.flatten()
-
-    # Make fixed-length vector (500 descriptors × 32 = 16000)
-    max_length = 500 * 32
-
-    if desc.shape[0] < max_length:
-        # Pad with zeros
-        padded = np.zeros(max_length)
-        padded[:desc.shape[0]] = desc
-        desc = padded
-    else:
-        # Trim extra values
-        desc = desc[:max_length]
-
-    # Final shape → (16000,)
-    return desc.astype(np.float32)
+def extract_descriptors(img, detector_tuple):
+    # img: BGR image
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    name, detector = detector_tuple
+    kp, des = detector.detectAndCompute(gray, None)
+    if des is None:
+        # empty descriptor: return zeros
+        return np.zeros((1,128), dtype=np.float32)
+    # normalize descriptors
+    des = des.astype(np.float32)
+    return des
