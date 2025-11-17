@@ -2,7 +2,7 @@
 import cv2, numpy as np, pickle
 from uwie import UWIE
 from morph import morph_process
-from features import make_detector, extract_descriptors, compute_bovw_hist
+from features import make_detector, extract_descriptors, compute_bovw_h
 from tensorflow.keras.models import load_model
 
 def predict_image_streamlit(img_bgr, approach='cnn'):
