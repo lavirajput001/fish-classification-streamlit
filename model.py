@@ -1,28 +1,25 @@
+# model.py
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Dropout, Input
-from tensorflow.keras.models import Model
+from tensorflow.keras import layers, models
 
-def build_patternnet(input_dim, num_classes):
-    """
-    PatternNet = Lightweight shallow neural network (MLP style)
-    Matches the paper's classifier design.
-    """
+def build_patternnet(input_shape=(64,64,3), n_classes=5):
+    model = models.Sequential()
+    model.add(layers.Input(shape=input_shape))
 
-    inputs = Input(shape=(input_dim,))
+    model.add(layers.Conv2D(16, (3,3), padding='same', activation='relu'))
+    model.add(layers.MaxPooling2D((2,2)))
 
-    x = Dense(256, activation="relu")(inputs)
-    x = Dropout(0.3)(x)
+    model.add(layers.Conv2D(32, (3,3), padding='same', activation='relu'))
+    model.add(layers.MaxPooling2D((2,2)))
 
-    x = Dense(128, activation="relu")(x)
-    x = Dropout(0.2)(x)
+    model.add(layers.Conv2D(64, (3,3), padding='same', activation='relu'))
+    model.add(layers.GlobalAveragePooling2D())
 
-    x = Dense(64, activation="relu")(x)
+    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dropout(0.4))
+    model.add(layers.Dense(n_classes, activation='softmax'))
 
-    outputs = Dense(num_classes, activation="softmax")(x)
-
-    model = Model(inputs, outputs)
-    model.compile(optimizer="adam",
-                  loss="categorical_crossentropy",
-                  metrics=["accuracy"])
-    
+    model.compile(optimizer='adam',
+                  loss='sparse_categorical_crossentropy',
+                  metrics=['accuracy'])
     return model
