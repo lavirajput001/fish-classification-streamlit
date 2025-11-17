@@ -1,8 +1,6 @@
 streamlit
+opencv-python
 numpy
-opencv-python-headless
+pillow
 tensorflow
 scikit-learn
-pillow
-matplotlib
-tqdm
