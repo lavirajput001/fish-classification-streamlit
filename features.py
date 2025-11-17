@@ -1,26 +1,33 @@
-# features.py
 import cv2
 import numpy as np
+import pickle
+from uwie import UWIE
+from morph import morph_process
+from features import make_detector, extract_descriptors, compute_bovw_h
+from tensorflow.keras.models import load_model
 
-# try to create SURF; if not available fall back to ORB
-def make_detector(surf_hessian=400):
-    try:
-        # xfeatures2d.SURF_create is present in opencv-contrib-python
-        surf = cv2.xfeatures2d.SURF_create(hessianThreshold=surf_hessian)
-        return ('surf', surf)
-    except Exception as e:
-        # fallback to ORB
-        orb = cv2.ORB_create(nfeatures=1000)
-        return ('orb', orb)
+# Load Keras model
+model = load_model("patternnet_model.h5")
 
-def extract_descriptors(img, detector_tuple):
-    # img: BGR image
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    name, detector = detector_tuple
-    kp, des = detector.detectAndCompute(gray, None)
-    if des is None:
-        # empty descriptor: return zeros
-        return np.zeros((1,128), dtype=np.float32)
-    # normalize descriptors
-    des = des.astype(np.float32)
-    return des
+# Load label encoder
+with open("label_encoder.pkl", "rb") as f:
+    le = pickle.load(f)
+
+# Initialize feature detector
+detector = make_detector()
+
+def predict_image_streamlit(img_bgr, approach='cnn'):
+    img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+    if approach == 'bovw':
+        _, descriptors = extract_descriptors(detector, img_gray)
+        features = compute_bovw_h(descriptors)
+        # dummy prediction for BoVW
+        pred_class = "Fish_BoVW"
+    else:  # CNN
+        img_resized = cv2.resize(img_bgr, (224, 224))
+        img_input = np.expand_dims(img_resized / 255.0, axis=0)
+        pred_probs = model.predict(img_input)
+        pred_class = le.inverse_transform([np.argmax(pred_probs)])[0]
+
+    return pred_class
