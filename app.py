@@ -1,28 +1,49 @@
-# app.py
 import streamlit as st
-import cv2
-import numpy as np
-from infer import predict_image_streamlit
+import pickle
 from PIL import Image
+import numpy as np
 
-st.set_page_config(page_title="Fish Classifier", layout="centered")
-st.title("Fish Species Classifier (UWIE + SURF/ORB + PatternNet)")
+# ----------------------------
+# Import your actual functions
+# ----------------------------
+from features import extract_features
+from infer import predict_image_streamlit  # ensure infer.py has this function
+from model import load_model  # ensure model.py has load_model function
 
-st.sidebar.header("Settings")
-approach = st.sidebar.selectbox("Approach", ["cnn", "bovw"])
-st.sidebar.write("Upload image to classify fish species.")
+st.set_page_config(page_title="Fish Classification App", page_icon="🐟")
+st.title("Fish Classification App")
+st.write("Upload an image of a fish to classify its species.")
 
-uploaded = st.file_uploader("Upload an underwater fish image", type=['jpg','jpeg','png'])
-if uploaded is not None:
-    # read image via PIL then convert to OpenCV BGR
-    pil = Image.open(uploaded).convert('RGB')
-    img = np.array(pil)[:, :, ::-1].copy()  # RGB->BGR
-    st.image(pil, caption="Uploaded image", use_column_width=True)
+# ----------------------------
+# Load trained model
+# ----------------------------
+model = load_model("patternnet_model.h5")
 
-    st.write("Running preprocessing and prediction...")
-    with st.spinner("Predicting..."):
-        label, conf = predict_image_streamlit(img, approach=approach)
-    st.success(f"Predicted: {label}")
-    if conf is not None:
-        st.write(f"Confidence: {conf:.3f}")
-    st.write("If confidence is low try another image or retrain model with more data.")
+# ----------------------------
+# Load label encoder
+# ----------------------------
+with open("label_encoder.pkl", "rb") as f:
+    le = pickle.load(f)
+
+# ----------------------------
+# Image upload section
+# ----------------------------
+uploaded_file = st.file_uploader("Upload a fish image", type=["jpg","png"])
+if uploaded_file is not None:
+    # Display image
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Uploaded Image", use_column_width=True)
+    
+    # Extract features using your features.py
+    features = extract_features(image)
+    
+    # Predict using your infer.py
+    prediction = predict_image_streamlit(model, features)
+    
+    # Ensure prediction is 1D array
+    prediction = np.array(prediction).reshape(-1)
+    
+    # Decode label using label_encoder.pkl
+    predicted_label = le.inverse_transform(prediction)[0]
+    
+    st.success(f"Predicted Species: {predicted_label}")
